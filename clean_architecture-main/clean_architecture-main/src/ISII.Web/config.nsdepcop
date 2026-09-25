@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<NsDepCopConfig>
+    <Allowed From="*" To="*" />
+
+    <Disallowed From="ISII.Web.Domain.*"
+				To="ISII.Web.Infrastructure.*" />
+    
+    <Disallowed From="ISII.Web.CartFeatures.*"
+				To="ISII.Web.Infrastructure.*" />
+    
+    <Disallowed From="ISII.Web.ProductFeatures.*"
+				To="ISII.Web.Infrastructure.*" />
+    
+    <Disallowed From="ISII.Web.Domain.OrderAggregate.*"
+				To="ISII.Web.Domain.CartAggregate.*" />
+
+    <AnalyzerConfig>
+        <IssueKind Name="IllegalDependency" Severity="Error" />
+    </AnalyzerConfig>
+</NsDepCopConfig>
