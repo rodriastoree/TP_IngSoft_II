@@ -4,6 +4,9 @@ namespace ISII.Web.Domain.CouponAggregate;
 
 public class Coupon : EntityBase<Coupon, CouponId>, IAggregateRoot
 {
+  // Private constructor for EF Core
+  private Coupon() { }
+
   public Coupon(CouponId id, string code, decimal discountPercentage, DateTime expirationDate)
   {
     // Vogen rejects access to Value on an uninitialized identifier.
@@ -30,7 +33,7 @@ public class Coupon : EntityBase<Coupon, CouponId>, IAggregateRoot
   public static Coupon Create(CouponId id, string code, decimal discountPercentage, DateTime expirationDate)
     => new Coupon(id, code, discountPercentage, expirationDate);
 
-  public string Code { get; private set; }
+  public string Code { get; private set; } = string.Empty;
   public decimal DiscountPercentage { get; private set; }
   public DateTime ExpirationDate { get; private set; }
   public bool IsActive { get; private set; }

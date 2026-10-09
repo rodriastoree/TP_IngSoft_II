@@ -4,17 +4,15 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace ISII.Web.Infrastructure.Data;
 
 /// <summary>
-/// Design-time factory for creating DbContext instances for EF Core tools.
-/// This is ONLY used when CREATING migrations (e.g., 'dotnet ef migrations add').
-/// It is NOT used at runtime - Aspire handles the runtime connection.
+/// Design-time factory for creating SQLite DbContext instances for EF Core tools.
+/// Runtime configuration is registered in InfrastructureServiceExtensions.
 ///
 /// Migrations are automatically APPLIED at runtime via MigrateAsync() in MiddlewareConfig.cs.
 ///
-/// To create migrations with SQL Server, set an environment variable:
-/// PowerShell: $env:ConnectionStrings__AppDb = "Server=localhost,1433;Database=AppDb;User ID=sa;Password=YourPassword;TrustServerCertificate=true"
-/// Bash: export ConnectionStrings__AppDb="Server=localhost,1433;Database=AppDb;User ID=sa;Password=YourPassword;TrustServerCertificate=true"
-///
-/// Always uses SQL Server for migrations.
+/// Uses the same default SQLite connection string as appsettings.json.
+/// Relative DataSource paths are resolved against the process working directory.
+/// Set ConnectionStrings__AppDb to a SQLite connection string with an absolute
+/// DataSource path to share a database across different working directories.
 /// </summary>
 public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 {
@@ -24,7 +22,7 @@ public class AppDbContextFactory : IDesignTimeDbContextFactory<AppDbContext>
 
     // Try to get connection string from environment variable (ASP.NET Core format)
     var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__AppDb")
-                          ?? "Server=localhost,1433;Database=AppDb_Design;User ID=sa;Password=Your$tr0ngP@ss!;TrustServerCertificate=true"; // Default SQL Server connection for design-time
+                          ?? "DataSource=ISII.db;Cache=Shared";
 
     optionsBuilder.UseSqlite(connectionString);
 
