@@ -58,6 +58,44 @@ namespace ISII.Web.Migrations
                     b.ToTable("CartItems", (string)null);
                 });
 
+            modelBuilder.Entity("ISII.Web.Domain.CouponAggregate.Coupon", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .UseCollation("BINARY");
+
+                    b.Property<long>("CreatedAt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("DiscountPercentage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ExpirationDate")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Coupons", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Coupons_Code_MaxLength", "length(\"Code\") <= 30");
+
+                            t.HasCheckConstraint("CK_Coupons_Dates", "typeof(\"CreatedAt\") = 'integer' AND typeof(\"ExpirationDate\") = 'integer' AND \"CreatedAt\" BETWEEN 0 AND 3155378975999999999 AND \"ExpirationDate\" BETWEEN 0 AND 3155378975999999999 AND \"ExpirationDate\" > \"CreatedAt\"");
+
+                            t.HasCheckConstraint("CK_Coupons_IsActive", "\"IsActive\" IN (0, 1)");
+                        });
+                });
+
             modelBuilder.Entity("ISII.Web.Domain.GuestUserAggregate.GuestUser", b =>
                 {
                     b.Property<Guid>("Id")
