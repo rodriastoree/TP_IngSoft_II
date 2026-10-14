@@ -19,7 +19,7 @@ public static class MiddlewareConfig
     }
     else
     {   
-      app.UseDefaultExceptionHandler(); // from FastEndpoints
+      app.UseDefaultExceptionHandler(useGenericReason: true); // from FastEndpoints
       app.UseHsts();
     }
 
