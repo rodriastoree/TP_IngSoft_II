@@ -119,6 +119,6 @@ Las pruebas de integración crean bases SQLite temporales propias. Las HTTP util
 
 ## Documentación y referencias
 
-- [Guía técnica de Coupon](docs/Coupon.md): arquitectura, dominio, persistencia, ejecución, pruebas y decisiones.
-- [Ejemplos HTTP existentes](src/ISII.Web/api.http): Product y Cart. Los contratos detallados y los ejemplos ejecutables de Coupon quedan reservados para la Etapa 7.3.
+- [Guía técnica de Coupon](docs/Coupon.md): arquitectura, dominio, persistencia, ejecución, pruebas, decisiones y contratos HTTP de POST y GET Coupon.
+- [Ejemplos HTTP](src/ISII.Web/api.http): ejemplos de Product, Cart y Coupon. Los ejemplos ejecutables de Coupon ya están incorporados y disponibles.
 - Referencias conservadas del README original: [Clean Architecture](https://github.com/ardalis/CleanArchitecture), [Vertical Slice Architecture](https://jimmybogard.com/vertical-slice-architecture/), [FastEndpoints](https://fast-endpoints.com/) y [Ardalis en YouTube](https://www.youtube.com/@Ardalis).

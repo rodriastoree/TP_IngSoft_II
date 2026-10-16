@@ -1,5 +1,9 @@
 @MinimalClean_HostAddress = http://localhost:57379
 
+# Cart: ejecutar primero "Add to Cart (Anonymous User - creates cart)".
+# Copiar cartId del cuerpo JSON de la respuesta y reemplazar el GUID
+# ilustrativo de MinimalClean_CartId. Luego continuar con los ejemplos
+# de carrito existente: "existing cart", "View Cart" y "Checkout".
 @MinimalClean_CartId = 68fe4cfd-84bb-4b8a-bb4e-528c26325c72
 
 # Variables para Coupon: código nuevo, vencimiento futuro y GUID editables.
