@@ -1,0 +1,34 @@
+meta {
+  name: 04 - Código vacío - 400
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/Coupons
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "code": "",
+    "discountPercentage": 12.345678,
+    "expirationDate": "{{couponExpirationUtc}}"
+  }
+}
+
+docs {
+  El código se envía vacío de forma intencional.
+  Mantener couponExpirationUtc futura y con Z para aislar el error de código.
+
+  Esperado: 400 Bad Request, con statusCode, message y errors.
+  El error de código indica: Coupon code is required and must not be blank.
+  Este formato de FastEndpoints difiere del Problem Details del 409.
+  No debe crearse un cupón. El estado se verifica manualmente.
+}

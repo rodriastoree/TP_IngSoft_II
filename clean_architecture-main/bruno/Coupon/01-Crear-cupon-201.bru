@@ -1,0 +1,42 @@
+meta {
+  name: 01 - Crear cupón - 201
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/Coupons
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "code": "{{couponCode}}",
+    "discountPercentage": 12.345678,
+    "expirationDate": "{{couponExpirationUtc}}"
+  }
+}
+
+docs {
+  Seleccionar el entorno Local. Ejecutar las cuatro solicitudes individualmente,
+  en orden; no ejecutar la colección completa sin transferir antes el ID real.
+
+  Antes de cada demostración, elegir un couponCode nuevo de 3 a 30 caracteres
+  y comprobar que couponExpirationUtc siga siendo futura y termine en Z.
+  El código de ejemplo no garantiza ausencia en la base seleccionada.
+
+  Esperado: 201 Created, cuerpo CouponRecord y Location: /Coupons/{id}.
+  Copiar SOLO el GUID de Location, o el campo id del JSON, a couponId en Local.
+  Guardar el entorno antes de ejecutar la solicitud 02.
+  Mantener couponCode sin cambios hasta completar la solicitud 03.
+
+  Esta solicitud persiste datos en la base configurada por la API.
+  Las variables de Bruno no seleccionan ni aíslan la base del servidor.
+  No hay scripts ni captura automática del ID; el estado se verifica manualmente.
+}
