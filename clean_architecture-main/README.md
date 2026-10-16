@@ -1,153 +1,124 @@
-# ISII
+# ISII — Trabajo Práctico de Ingeniería de Software II
 
-Welcome to your new project generated with the **Minimal Clean Architecture** template!
+Este repositorio incorpora la funcionalidad **Coupon** al proyecto base facilitado por el profesor. Permite crear cupones y consultarlos por identificador, con reglas de dominio, persistencia SQLite, validaciones HTTP y pruebas automatizadas.
 
-This is a streamlined, single-project Vertical Slice Architecture (VSA) that follows Clean Architecture principles without the overhead of multiple projects. Perfect for smaller applications, MVPs, or teams that want architectural guidance without complex project boundaries.
+Se conserva la atribución al proyecto original del profesor. Su README identificaba como origen la plantilla **Minimal Clean Architecture** y referenciaba el [repositorio Clean Architecture de Ardalis](https://github.com/ardalis/CleanArchitecture). La ampliación mantiene la organización del proyecto base.
 
-## Getting Started
+La consigna académica no está disponible en el repositorio. Esta documentación describe la implementación y la evidencia verificadas; no acredita el cumplimiento completo de requisitos de entrega o evaluación desconocidos.
 
-### Build and Run
+## Funcionalidad incorporada
 
-```powershell
-# Build the solution
-dotnet build
+- Dominio `Coupon` e identificador `CouponId` mediante Vogen.
+- Persistencia EF Core/SQLite y migración `AddCoupon`.
+- `POST /Coupons`: creación de cupones.
+- `GET /Coupons/{CouponId}`: consulta, incluidos cupones vencidos o inactivos.
+- Validaciones 400, conflicto 409 por código duplicado y respuesta 500 genérica fuera de Development.
+- Pruebas unitarias, de persistencia y HTTP.
 
-# Run the application
-dotnet run --project src/ISII.Web
+Coupon no se aplica a Cart u Order ni calcula descuentos en compras. El alcance, las reglas y las limitaciones se explican en la [guía técnica de Coupon](docs/Coupon.md).
 
-```
+## Tecnologías utilizadas
 
-### Database Setup
+| Tecnología | Uso en el proyecto |
+|---|---|
+| .NET 10 y C# | Aplicación web y pruebas |
+| FastEndpoints y FluentValidation | Endpoints y validación de entrada |
+| Mediator | Query y handler del GET de Coupon |
+| Ardalis.SharedKernel, Result y Specification | Entidades, repositorios, resultados y consultas |
+| EF Core y SQLite | Mapeo, persistencia y migraciones |
+| Vogen | Identificadores tipados y conversiones EF |
+| Serilog | Registro de diagnóstico |
+| FastEndpoints.Swagger y Scalar | Documentación de API en Development |
+| xUnit y Microsoft.AspNetCore.Mvc.Testing | Pruebas y host HTTP en proceso |
 
-#### Run Web project directly (SQLite LocalDB)
+Las versiones se centralizan en [Directory.Packages.props](Directory.Packages.props); las referencias efectivas se declaran en los proyectos [Web](src/ISII.Web/ISII.Web.csproj) y [Tests](tests/ISII.Tests/ISII.Tests.csproj).
 
-If running the Web project without Aspire, update `appsettings.json` to use LocalDB:
+## Estructura actual
 
-```powershell
-dotnet ef database update -c AppDbContext -p src/ISII.Web -s src/ISII.Web
-dotnet run --project src/ISII.Web
-```
-
-## Project Structure
-
-This template uses a **single Web project** organized by **vertical slices** (features):
-
-```text
-src/ISII.Web/
-├── Domain/                    # Domain entities and aggregates
-│   ├── CartAggregate/
-│   ├── OrderAggregate/
-│   └── ProductAggregate/
-├── Infrastructure/            # Data access and external services
-│   ├── Data/
-│   │   ├── AppDbContext.cs
-│   │   ├── Config/           # EF Core configurations
-│   │   └── Migrations/
-│   └── Email/                # Email services
-├── Endpoints/                 # API endpoints (FastEndpoints)
-│   ├── Cart/
-│   ├── Order/
-│   └── Product/
-└── Program.cs                # Application startup
-```
-
-### Key Design Decisions
+La solución contiene un proyecto web organizado por funcionalidades o **vertical slices**, y un proyecto de pruebas. Dominio e infraestructura son carpetas del proyecto web; no son proyectos independientes.
 
 ```text
-Single project vertical slice architecture
+clean_architecture-main/
+├── ISII.slnx
+├── Directory.Build.props
+├── Directory.Packages.props
+├── global.json
+├── docs/
+│   └── Coupon.md
+├── src/ISII.Web/
+│   ├── Domain/
+│   │   ├── CartAggregate/
+│   │   ├── CouponAggregate/
+│   │   ├── GuestUserAggregate/
+│   │   ├── OrderAggregate/
+│   │   └── ProductAggregate/
+│   ├── CartFeatures/
+│   ├── CouponFeatures/
+│   │   ├── Create/
+│   │   └── GetById/
+│   ├── ProductFeatures/
+│   ├── Infrastructure/Data/Config/
+│   ├── Migrations/
+│   ├── Configurations/
+│   ├── Extensions/
+│   ├── Properties/launchSettings.json
+│   ├── appsettings.json
+│   ├── appsettings.Development.json
+│   ├── api.http
+│   └── Program.cs
+└── tests/ISII.Tests/
+    ├── ProductTest.cs
+    ├── Unit/Domain/
+    ├── Integration/Persistence/
+    ├── Integration/Http/
+    └── Support/
 ```
 
-- **Single Project**: All code in one Web project - simpler dependencies, faster builds
-- **Vertical Slices**: Organized by feature (Cart, Order, Product) not layer
-- **Domain-Driven Design**: Entities use proper encapsulation and business logic
-- **FastEndpoints**: REPR pattern for clean, testable API endpoints
-- **Entity Framework Core**: Simple data access with SQLite (easily switched to SQL Server)
-- **Mediator Pattern**: Optional - use for cross-cutting concerns or remove for simplicity
+## Requisitos y verificación
 
-## What's Different from Full Clean Architecture?
+Se necesita un SDK de .NET compatible con `net10.0` y acceso a los paquetes NuGet para restaurar. [global.json](global.json) solicita `10.0.100`, permite versiones preliminares y utiliza `rollForward: latestMajor`. En la Etapa 6.5 se verificó la solución con SDK `10.0.400`.
 
-This minimal template simplifies the full Clean Architecture template:
+La ejecución actual utiliza SQLite y no requiere un servidor SQL Server ni un host Aspire. Tampoco es necesario instalar `dotnet ef` para compilar, ejecutar las pruebas o utilizar las migraciones automáticas del arranque.
 
-| Full Template | Minimal Template |
-|--------------|------------------|
-| 4+ projects (Core, UseCases, Infrastructure, Web) | 1 Web project |
-| Repository pattern with Specifications | Repository pattern with Specifications if needed |
-| Extensive use of interfaces and abstractions | Pragmatic abstractions where needed |
-| Separate Use Cases project with Mediator | Optional Mediator; logic can be in endpoints |
-| Complex domain patterns (Aggregates, Value Objects, Domain Events) | Pragmatic DDD patterns (Aggregates, Value Objects) |
-
-## When to Use This Template
-
-**Use Minimal Clean Architecture when:**
-
-- ✓ Building MVPs or smaller applications
-- ✓ You want architectural guidance without project ceremony
-- ✓ Team prefers simplicity and fast iteration
-- ✓ Vertical slice architecture appeals to you
-- ✓ You may grow into full Clean Architecture later
-
-**Use Full Clean Architecture when:**
-
-- × Building large, complex enterprise applications
-- × Multiple teams working on different layers
-- × Need strict separation of concerns and dependencies
-- × Domain complexity requires extensive DDD patterns
-- × Long-term maintenance and evolution expected
-
-## Technology Stack
-
-- **.NET 10**: Latest LTS framework
-- **FastEndpoints**: REPR pattern for API endpoints
-- **Entity Framework Core**: Data access with migrations
-- **SQLite**: Database
-- **Serilog**: Structured logging
-- **FluentValidation**: Request validation
-
-## Common Tasks
-
-### Adding a New Feature (Vertical Slice)
-
-1. **Create Domain Entity**: Add to `Domain/YourFeatureAggregate/`
-2. **Add EF Configuration**: Create config in `Infrastructure/Data/Config/`
-3. **Create Migration**: `dotnet ef migrations add AddYourFeature`
-4. **Create Endpoints**: Add FastEndpoints in `Endpoints/YourFeature/`
-
-### SQLite
-
-The project is configured to use SQLite by default. Update `appsettings.json` if needed:
-
-```json
-{
-  "ConnectionStrings": {
-    "AppDb": "DataSource=ISII.db;Cache=Shared"
-  }
-}
-```
-
-### Running Tests
+Desde la raíz del repositorio, abrir la carpeta que contiene `ISII.slnx` y ejecutar:
 
 ```powershell
-dotnet test
+cd clean_architecture-main
+dotnet restore ISII.slnx
+dotnet build ISII.slnx
+dotnet test ISII.slnx
 ```
 
-## Migration Path to Full Clean Architecture
+## Ejecución de la API y SQLite
 
-As your application grows, you can migrate to the full Clean Architecture template:
+Desde la misma carpeta de la solución:
 
-1. **Extract Core**: Move Domain entities to separate Core project
-2. **Extract UseCases**: Move business logic to UseCases project with Mediator
-3. **Extract Infrastructure**: Move data access to Infrastructure project
-4. **Update Dependencies**: Set up proper dependency flow (Core ← UseCases ← Infrastructure)
+```powershell
+dotnet run --project src/ISII.Web --launch-profile http
+```
 
-Learn more: [Clean Architecture Template](https://github.com/ardalis/CleanArchitecture)
+El perfil `http` de [launchSettings.json](src/ISII.Web/Properties/launchSettings.json) utiliza Development y `http://localhost:57379/`. En ese entorno se habilitan Scalar en `/scalar` y OpenAPI con la ruta `/openapi/{documentName}.json`.
 
-## Resources
+[appsettings.json](src/ISII.Web/appsettings.json) define la conexión `AppDb` con `DataSource=ISII.db;Cache=Shared`. La ruta es relativa al directorio de trabajo del proceso. Puede sobrescribirse mediante `ConnectionStrings__AppDb` con una ruta absoluta propia; la [guía técnica](docs/Coupon.md#ejecucion-y-configuracion) explica cómo mantener alineadas la aplicación y las herramientas EF.
 
-- [Clean Architecture Template Repository](https://github.com/ardalis/CleanArchitecture)
-- [Vertical Slice Architecture](https://jimmybogard.com/vertical-slice-architecture/)
-- [FastEndpoints Documentation](https://fast-endpoints.com/)
-- [Ardalis on YouTube](https://www.youtube.com/@Ardalis)
+**Iniciar la API puede modificar la base:** el arranque aplica migraciones pendientes y ejecuta el seed. `RecreateOnStartup` está en `false`; activarlo en Development elimina la base y sus datos antes de migrar. Los errores de migración o seed se registran, pero el arranque puede continuar. Ver las [limitaciones conocidas](docs/Coupon.md#limitaciones-conocidas).
 
----
+## Pruebas automatizadas
 
-**Happy Coding!** 🚀
+| Categoría | Casos |
+|---|---:|
+| Product originales | 7 |
+| Dominio Coupon/CouponId | 30 |
+| Persistencia SQLite | 25 |
+| HTTP Coupon | 21 |
+| **Total** | **83** |
+
+En la Etapa 6.5, sobre el commit `bd58fc3`, restore y build finalizaron correctamente, con cero advertencias y errores. La suite aprobó **83 pruebas en cada una de tres ejecuciones consecutivas**, sin fallos ni omisiones. Estos resultados son evidencia de esa verificación, no una nueva ejecución durante la documentación.
+
+Las pruebas de integración crean bases SQLite temporales propias. Las HTTP utilizan `WebApplicationFactory` y TestServer en proceso. No se dispone de un porcentaje de cobertura medido. La [guía técnica](docs/Coupon.md#pruebas-automatizadas) detalla el aislamiento y el alcance verificado.
+
+## Documentación y referencias
+
+- [Guía técnica de Coupon](docs/Coupon.md): arquitectura, dominio, persistencia, ejecución, pruebas y decisiones.
+- [Ejemplos HTTP existentes](src/ISII.Web/api.http): Product y Cart. Los contratos detallados y los ejemplos ejecutables de Coupon quedan reservados para la Etapa 7.3.
+- Referencias conservadas del README original: [Clean Architecture](https://github.com/ardalis/CleanArchitecture), [Vertical Slice Architecture](https://jimmybogard.com/vertical-slice-architecture/), [FastEndpoints](https://fast-endpoints.com/) y [Ardalis en YouTube](https://www.youtube.com/@Ardalis).
