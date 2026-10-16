@@ -1,0 +1,35 @@
+meta {
+  name: 03 - Código duplicado - 409
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/Coupons
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  Accept: application/json
+}
+
+body:json {
+  {
+    "code": "{{couponCode}}",
+    "discountPercentage": 12.345678,
+    "expirationDate": "{{couponExpirationUtc}}"
+  }
+}
+
+docs {
+  Requiere la creación exitosa de la solicitud 01 en la misma base.
+  Usar exactamente el mismo couponCode, respetando mayúsculas y espacios.
+  Mantener el porcentaje válido y el vencimiento futuro UTC.
+
+  Esperado: 409 Conflict, con title: Coupon code conflict,
+  status: 409 y detail: Ya existe un cupón con ese código.
+  Sin creación previa puede devolver 201; cambiar mayúsculas puede crear otro cupón.
+  El estado se verifica manualmente.
+}

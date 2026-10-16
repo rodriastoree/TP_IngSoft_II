@@ -1,0 +1,176 @@
+@MinimalClean_HostAddress = http://localhost:57379
+
+# Cart: ejecutar primero "Add to Cart (Anonymous User - creates cart)".
+# Copiar cartId del cuerpo JSON de la respuesta y reemplazar el GUID
+# ilustrativo de MinimalClean_CartId. Luego continuar con los ejemplos
+# de carrito existente: "existing cart", "View Cart" y "Checkout".
+@MinimalClean_CartId = 68fe4cfd-84bb-4b8a-bb4e-528c26325c72
+
+# Variables para Coupon: código nuevo, vencimiento futuro y GUID editables.
+# Reemplazar Coupon_Id por el GUID real devuelto en Location tras Coupon 1.
+@Coupon_Code = DEMOCOUPON_20261016
+@Coupon_ExpirationUtc = 2035-12-31T23:59:59Z
+@Coupon_Id = 11111111-1111-4111-8111-111111111111
+@Coupon_MissingId = 22222222-2222-4222-8222-222222222222
+
+### List Products
+GET {{MinimalClean_HostAddress}}/products
+Accept: application/json
+
+### Get Product By ID
+GET {{MinimalClean_HostAddress}}/products/1
+Accept: application/json
+
+### Create Product
+POST {{MinimalClean_HostAddress}}/products
+Content-Type: application/json
+
+{
+  "name": "New Product",
+  "unitPrice": 29.99
+}
+
+### Add to Cart (Anonymous User - creates cart)
+POST {{MinimalClean_HostAddress}}/cart
+Content-Type: application/json
+
+{
+  "productId": 1,
+  "quantity": 2
+}
+
+### Add to Cart (Anonymous User - existing cart)
+POST {{MinimalClean_HostAddress}}/cart
+Content-Type: application/json
+
+{
+  "cartId": "{{MinimalClean_CartId}}",
+  "productId": 2,
+  "quantity": 3
+}
+
+### View Cart
+GET {{MinimalClean_HostAddress}}/cart/{{MinimalClean_CartId}}
+Accept: application/json
+
+### Checkout
+POST {{MinimalClean_HostAddress}}/cart/{{MinimalClean_CartId}}/checkout
+Content-Type: application/json
+
+{
+  "email": "guest@example.com"
+}
+### Note: Get order ID from response for future use
+
+### Coupon — Preparación manual
+# Puerto 57379 verificado en Properties/launchSettings.json, perfil http.
+# Usar un cliente .http con variables de archivo e interpolación, sin scripts.
+# Los ejemplos son ilustrativos: no representan datos ya creados.
+# Ejecutar individualmente; el POST válido persiste en la base configurada.
+# Para otra demostración, elegir Coupon_Code nuevo (3-30 caracteres).
+# Revisar Coupon_ExpirationUtc si deja de ser futura. No hay captura automática.
+
+### Coupon 1 — POST válido: esperado 201 y Location
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "{{Coupon_Code}}",
+  "discountPercentage": 12.345678,
+  "expirationDate": "{{Coupon_ExpirationUtc}}"
+}
+
+### Coupon 2 — GET existente: esperado 200, requiere ejecutar Coupon 1
+# Copiar SOLO el GUID de Location del POST en Coupon_Id, al inicio del archivo.
+# El identificador inicial es ilustrativo; no garantiza un cupón existente.
+GET {{MinimalClean_HostAddress}}/Coupons/{{Coupon_Id}}
+Accept: application/json
+
+### Coupon 3 — POST código vacío: esperado 400
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "",
+  "discountPercentage": 12.345678,
+  "expirationDate": "{{Coupon_ExpirationUtc}}"
+}
+
+### Coupon 4 — POST porcentaje 0: esperado 400
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "{{Coupon_Code}}",
+  "discountPercentage": 0,
+  "expirationDate": "{{Coupon_ExpirationUtc}}"
+}
+
+### Coupon 5 — POST porcentaje 101: esperado 400
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "{{Coupon_Code}}",
+  "discountPercentage": 101,
+  "expirationDate": "{{Coupon_ExpirationUtc}}"
+}
+
+### Coupon 6 — POST fecha pasada UTC: esperado 400
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "{{Coupon_Code}}",
+  "discountPercentage": 12.345678,
+  "expirationDate": "2000-01-01T00:00:00Z"
+}
+
+### Coupon 7 — POST fecha sin UTC: esperado 400
+# ISO 8601 sin Z ni offset: DateTimeKind.Unspecified; no es UTC.
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "{{Coupon_Code}}",
+  "discountPercentage": 12.345678,
+  "expirationDate": "2035-12-31T23:59:59"
+}
+
+### Coupon 8 — POST duplicado: esperado 409, requiere Coupon 1 exitoso
+# Usar EXACTAMENTE Coupon_Code del primer POST, sin cambiar mayúsculas.
+# Si no fue creado primero, esta solicitud puede crear el cupón con 201.
+# Repetir Coupon 1 también devuelve 409 mientras el mismo código exista.
+POST {{MinimalClean_HostAddress}}/Coupons
+Content-Type: application/json
+Accept: application/json
+
+{
+  "code": "{{Coupon_Code}}",
+  "discountPercentage": 12.345678,
+  "expirationDate": "{{Coupon_ExpirationUtc}}"
+}
+
+### Coupon 9 — GET inexistente: esperado 404 si Coupon_MissingId no existe
+# GUID ilustrativo válido, distinto del GET existente. Cambiarlo si existe.
+# No se comprueba automáticamente su ausencia en la base seleccionada.
+GET {{MinimalClean_HostAddress}}/Coupons/{{Coupon_MissingId}}
+Accept: application/json
+
+### Coupon 10 — GET Guid.Empty: esperado 400, Problem Details
+GET {{MinimalClean_HostAddress}}/Coupons/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### Coupon 11 — GET GUID mal formado: esperado 400, ErrorResponse de FastEndpoints
+GET {{MinimalClean_HostAddress}}/Coupons/not-a-guid
+Accept: application/json
+
+
+
+

@@ -1,0 +1,26 @@
+meta {
+  name: 02 - Consultar cupón - 200
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/Coupons/{{couponId}}
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+docs {
+  Requiere que la solicitud 01 haya devuelto 201.
+  Copiar su ID real a couponId en el entorno Local y guardar.
+  No enviar mientras couponId esté vacío; no usar un GUID ilustrativo.
+
+  Esperado: 200 OK y el mismo cupón creado, con id, code,
+  discountPercentage, expirationDate, isActive y createdAt.
+  La solicitud no lleva cuerpo ni necesita Content-Type.
+  El estado se verifica manualmente.
+}
