@@ -34,6 +34,8 @@ El validador se ejecuta antes del endpoint. Este genera el Guid, lo convierte co
 
 El POST **no utiliza un command ni un handler de Mediator**. Sigue el patrón de creación de Product. Propaga `CancellationToken` a las operaciones del repositorio.
 
+Traduce de forma acotada las excepciones esperadas de creación a errores de validación. Para reconocer un duplicado exige DbUpdateException con códigos SQLite 19/2067, una única entrada EF correspondiente al mismo cupón en estado Added y el mensaje exacto de la restricción Coupons.Code. Otras excepciones continúan hacia el manejador existente.
+
 ### Flujo GET
 
 `GetByIdEndpoint` → `GetCouponQuery` → Mediator → `GetCouponHandler` → `CouponByIdSpec` → `IReadRepository<Coupon>` → `CouponDto` → mapper → `CouponRecord`.
@@ -42,18 +44,191 @@ El endpoint maneja `Guid.Empty` antes de invocar `CouponId.From()`. El handler c
 
 La especificación filtra únicamente por identificador. No filtra por actividad ni vencimiento. El token de cancelación se propaga por Mediator hasta el repositorio.
 
-### Resumen HTTP
+## API HTTP de Coupon
 
-Ambos endpoints utilizan FastEndpoints y `AllowAnonymous()`; no requieren autenticación. El contrato público utiliza Guid y no expone el identificador Vogen.
+Esta sección describe los contratos de los endpoints existentes. Los ejemplos de solicitudes y respuestas son **ilustrativos**: los identificadores y fechas mostrados no provienen de una ejecución real ni garantizan registros existentes. Los nombres JSON usan camelCase.
 
-| Endpoint | Responsabilidad | Respuestas principales |
+| Método y ruta | Responsabilidad | Autenticación |
 |---|---|---|
-| `POST /Coupons` | Crear un cupón válido y persistirlo | 201 con `CouponRecord` y `Location`; 400 por entrada inválida; 409 por código duplicado; 500 ante fallos inesperados fuera de Development |
-| `GET /Coupons/{CouponId}` | Consultar un cupón existente, aunque esté vencido o inactivo | 200 con `CouponRecord`; 400 por identificador vacío o mal formado; 404 si no existe |
+| `POST /Coupons` | Crear y persistir un cupón válido | Acceso anónimo (`AllowAnonymous()`) |
+| `GET /Coupons/{CouponId}` | Recuperar un cupón por identificador | Acceso anónimo (`AllowAnonymous()`) |
 
-El POST traduce de forma acotada excepciones esperadas del dominio a errores de validación. La detección de duplicados exige `DbUpdateException`, códigos SQLite 19/2067, la entrada EF del cupón agregado y el mensaje exacto de la restricción `Coupons.Code`. Otras excepciones continúan hacia el manejador existente.
+### POST /Coupons
 
-Los contratos HTTP detallados, ejemplos JSON, formatos de error y ejemplos ejecutables se reservan para la Etapa 7.3. No debe inferirse un formato de error uniforme a partir de este resumen.
+Enviar un objeto JSON con `Content-Type: application/json`. Puede solicitarse JSON mediante `Accept: application/json`.
+
+| Propiedad del request | Tipo .NET / JSON | Obligatoriedad y validación |
+|---|---|---|
+| `code` | `string` / cadena | Obligatorio, no nulo ni blanco; longitud de 3 a 30 unidades UTF-16; se conservan espacios y mayúsculas |
+| `discountPercentage` | `decimal` / número | Obligatorio para una creación válida; mayor que 0 y menor o igual a 100; no se limita a dos decimales |
+| `expirationDate` | `DateTime` / cadena ISO 8601 | Obligatoria, Kind UTC y estrictamente futura; el dominio vuelve a comprobar que sea posterior a la creación |
+
+La omisión de propiedades no produce datos válidos: el código predeterminado queda vacío y el porcentaje y la fecha toman valores que el validador rechaza. Los detalles de las reglas se explican en Modelo de dominio.
+
+Ejemplo ilustrativo de entrada; actualizar el vencimiento si deja de ser futuro y elegir otro código si ya existe:
+
+```json
+{
+  "code": "DEMOCOUPON_20261016",
+  "discountPercentage": 12.345678,
+  "expirationDate": "2035-12-31T23:59:59Z"
+}
+```
+
+`id`, `createdAt` e `isActive` no forman parte del request documentado. El servidor genera el identificador mediante `Guid.NewGuid()` y `CouponId.From()`, captura `DateTime.UtcNow` y establece el estado inicial activo.
+
+#### 201 Created y CouponRecord
+
+La creación correcta devuelve `Content-Type: application/json` y un encabezado `Location` relativo con el formato `/Coupons/{id}`.
+
+| Propiedad de respuesta | Tipo .NET / JSON | Significado |
+|---|---|---|
+| `id` | `Guid` / cadena | Identificador generado, sin envoltorio Vogen |
+| `code` | `string` / cadena | Código persistido sin normalización |
+| `discountPercentage` | `decimal` / número | Porcentaje persistido; no se fuerza una escala de dos decimales |
+| `expirationDate` | `DateTime` / cadena ISO 8601 UTC | Vencimiento del cupón |
+| `isActive` | `bool` / booleano | Estado; `true` al crear |
+| `createdAt` | `DateTime` / cadena ISO 8601 UTC | Instante de creación generado por el servidor |
+
+Ejemplo ilustrativo de encabezados:
+
+```http
+HTTP/1.1 201 Created
+Content-Type: application/json
+Location: /Coupons/11111111-1111-4111-8111-111111111111
+```
+
+Ejemplo ilustrativo del cuerpo, con las seis propiedades de [CouponRecord](../src/ISII.Web/CouponFeatures/CouponRecord.cs):
+
+```json
+{
+  "id": "11111111-1111-4111-8111-111111111111",
+  "code": "DEMOCOUPON_20261016",
+  "discountPercentage": 12.345678,
+  "expirationDate": "2035-12-31T23:59:59Z",
+  "isActive": true,
+  "createdAt": "2026-10-16T12:00:00.1234567Z"
+}
+```
+
+Las fechas devueltas tienen Kind UTC y se representan con `Z`; pueden contener fracciones de segundo. La cantidad de dígitos presentada puede variar. El porcentaje se conserva como decimal y se serializa como número JSON; el cliente debe evitar conversiones a punto flotante si necesita conservar su precisión. No se promete conservar ceros finales de la representación textual.
+
+### GET /Coupons/{CouponId}
+
+El parámetro obligatorio de ruta se vincula a un `Guid`. Los ejemplos usan la representación habitual de 36 caracteres con guiones. La solicitud no necesita cuerpo ni encabezado Content-Type; puede usar `Accept: application/json`.
+
+Para consultar el cupón creado, copiar el GUID del `Location` real del POST. No utilizar el GUID ilustrativo de este documento como si identificara un registro existente.
+
+Si existe, devuelve 200 y el mismo contrato `CouponRecord` de seis propiedades descrito para el POST:
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+```
+
+El GET devuelve también cupones vencidos o inactivos. **Recuperar un registro no significa que sea válido para aplicar un descuento.** La API no implementa esa aplicación a compras.
+
+Un GUID bien formado que no identifica un registro devuelve 404 mediante `TypedResults.NotFound()`, sin un cuerpo JSON de error definido por Coupon. `Guid.Empty` devuelve 400 antes de convertir a CouponId. Un GUID mal formado se rechaza durante el binding de FastEndpoints y también devuelve 400, con un formato diferente.
+
+### Estados HTTP y evidencia
+
+| Estado | POST | GET | Evidencia y alcance |
+|---|---|---|---|
+| 201 Created | Creación correcta, cuerpo y Location | No corresponde | Prueba HTTP de creación y consulta posterior |
+| 200 OK | No corresponde | Cupón existente, incluso vencido o inactivo | Pruebas HTTP de consulta y estados persistidos |
+| 400 Bad Request | Código, porcentaje o fecha inválidos; fecha no UTC; errores de deserialización JSON | Guid.Empty o GUID mal formado | Validaciones y binding cubiertos por pruebas; ver precisión sobre JSON mal formado debajo |
+| 404 Not Found | No corresponde | GUID válido sin registro | Prueba HTTP de recurso inexistente |
+| 409 Conflict | Código ya persistido con la misma comparación BINARY | No corresponde | Prueba HTTP de duplicado secuencial |
+| 500 Internal Server Error | Fallo inesperado no traducido a 400/409 | Fallo inesperado de consulta | Manejador compartido fuera de Development; probado mediante un fallo controlado de guardado en POST, sin prueba directa de fallo GET |
+
+Las 21 pruebas HTTP existentes verifican los escenarios indicados; no cubren cualquier fallo posible. No se ejecutó la API ni se generaron respuestas nuevas para escribir estos ejemplos.
+
+Los metadatos del GET declaran 400 como Problem Details, pero el binding de un GUID mal formado devuelve ErrorResponse. Los endpoints tampoco declaran explícitamente el 500 en sus metadatos de respuestas. Esta guía describe el comportamiento implementado; no afirma que OpenAPI represente todos esos casos. No se modificaron endpoints para corregir sus metadatos.
+
+### Formatos de error
+
+El tipo de contenido `application/problem+json` no implica que todos los cuerpos tengan la misma estructura. La API conserva tres formatos: `ErrorResponse` de FastEndpoints, Problem Details de ASP.NET Core e `InternalErrorResponse` de FastEndpoints.
+
+#### 400 de validación o binding: ErrorResponse
+
+Las validaciones del POST y el GUID mal formado del GET utilizan `statusCode`, `message` y un diccionario `errors` con listas de mensajes. Ejemplo ilustrativo para código vacío, basado en el mensaje del validador:
+
+```json
+{
+  "statusCode": 400,
+  "message": "One or more errors occurred!",
+  "errors": {
+    "code": [
+      "Coupon code is required and must not be blank."
+    ]
+  }
+}
+```
+
+Los errores de fecha o de porcentaje se asocian al campo correspondiente. Los de deserialización pueden usar otra clave y mensajes del serializador; no se fija aquí su texto completo. En el GET con GUID mal formado, el error corresponde al parámetro `CouponId`.
+
+El JSON sintácticamente mal formado y los valores que no pueden convertirse al tipo solicitado se rechazan durante la deserialización. FastEndpoints 7.1.1 transforma por defecto `JsonException` a un error con estado 400, sin configuración que lo desactive en este proyecto; este comportamiento se contrastó con la documentación instalada y las [opciones de binding de esa versión](https://raw.githubusercontent.com/FastEndpoints/FastEndpoints/v7.1.1/Src/Library/Config/BindingOptions.cs).
+
+La suite comprueba una fecha con texto no convertible dentro de un JSON válido; no contiene un caso específico de JSON truncado o sintácticamente roto. Por eso el 400 de este último se documenta por el comportamiento del framework, no como una prueba HTTP ejecutada. Todos los cuerpos de los ejemplos ejecutables son JSON válido.
+
+#### 400 de Guid.Empty: Problem Details
+
+Este caso utiliza `TypedResults.Problem()` con título, estado y detalle explícitos. Extracto ilustrativo de esos campos; el framework también puede aportar campos estándar como `type`:
+
+```json
+{
+  "title": "Invalid coupon ID",
+  "status": 400,
+  "detail": "Coupon ID must not be empty."
+}
+```
+
+No tiene el diccionario `errors` del formato anterior. No debe confundirse con el 400 que se produce al intentar vincular un GUID mal formado.
+
+#### 409 de código duplicado: Problem Details
+
+Extracto ilustrativo de los campos públicos definidos por el endpoint:
+
+```json
+{
+  "title": "Coupon code conflict",
+  "status": 409,
+  "detail": "Ya existe un cupón con ese código."
+}
+```
+
+La unicidad es sensible a mayúsculas mediante BINARY y no normaliza el código. Un código idéntico produce conflicto; códigos que solo difieren en mayúsculas/minúsculas pueden coexistir. La restricción de base protege la unicidad, sin depender de una consulta previa. No todo DbUpdateException se convierte en 409; la detección acotada se explica en Arquitectura y Persistencia.
+
+#### 500 inesperado: InternalErrorResponse
+
+Fuera de Development, el manejador existente usa `useGenericReason: true`. Ejemplo ilustrativo de su formato, diferente de Problem Details:
+
+```json
+{
+  "status": "Internal Server Error!",
+  "code": 500,
+  "reason": "An unexpected error has occurred.",
+  "note": "See application log for stack trace."
+}
+```
+
+La nota remite al diagnóstico del servidor; no incluye la traza en el cuerpo. El motivo público es genérico. Las pruebas de POST verifican ausencia de la excepción simulada, SQL, connection strings, rutas internas y trazas en el escenario cubierto. No se exponen aquí datos de diagnóstico reales ni se afirma que todos los fallos posibles estén probados.
+
+Development utiliza la página de excepciones del proyecto base, por lo que el formato y la protección anteriores corresponden a Production y otros entornos distintos de Development. No hay un endpoint público para provocar el 500; su verificación automatizada utiliza el interceptor aislado del proyecto de pruebas.
+
+### UTC y uso manual de api.http
+
+Usar fechas ISO 8601 con `Z` para expresar UTC. Una cadena sin sufijo de zona produce Kind Unspecified y se rechaza aunque su hora numérica sea futura. Un offset no debe asumirse equivalente a Kind UTC al deserializar a DateTime; los ejemplos válidos usan `Z`.
+
+El archivo [api.http](../src/ISII.Web/api.http) conserva los ejemplos anteriores de Product y Cart y agrega Coupon. Requiere un cliente que interprete variables `@nombre = valor` e interpolaciones `{{nombre}}`; no utiliza scripts, funciones dinámicas ni captura automática de respuestas.
+
+1. Ajustar el host si no se usa el perfil `http`, cuyo puerto verificado es 57379. La preparación del servidor corresponde al procedimiento de Ejecución y configuración.
+2. Elegir `Coupon_Code` no existente y comprobar que `Coupon_ExpirationUtc` siga siendo futura. La fecha 2035-12-31 tiene margen para la fecha de esta documentación, pero debe actualizarse cuando corresponda.
+3. Ejecutar primero el POST válido. Copiar el GUID de su Location en `Coupon_Id`; esa variable contiene inicialmente un valor ilustrativo.
+4. Ejecutar el GET existente. Para el conflicto, repetir el POST con el mismo `Coupon_Code` ya creado; si el primer POST devuelve 409, cambiar el código para iniciar otra demostración.
+5. Ejecutar individualmente los casos negativos. Para esperar 404, `Coupon_MissingId` debe ser un GUID que no exista en la base seleccionada; el valor ilustrativo no constituye una garantía de ausencia.
+
+Los ejemplos no preparan ni limpian bases y no deben ejecutarse en bloque suponiendo que son pruebas aisladas. Un POST válido enviado manualmente persiste datos en la base configurada. No se ejecutaron estas solicitudes ni se modificó ninguna base durante la Etapa 7.3.
 
 ## Modelo de dominio
 
@@ -222,7 +397,7 @@ En la Etapa 6.5 se verificó el commit `bd58fc3` mediante `dotnet restore ISII.s
 
 La misma auditoría confirmó `System.Security.Cryptography.Pkcs` 10.0.13 y `SQLitePCLRaw.lib.e_sqlite3` 3.53.3, con NuGetAudit activo y sin vulnerabilidades reportadas en los orígenes consultados. Ese resultado corresponde a la auditoría de la Etapa 6.5; no garantiza el estado futuro de los avisos.
 
-Estos resultados no representan nuevas ejecuciones durante la Etapa 7.2. `coverlet.collector` está referenciado, pero no se recolectó cobertura en aquellas corridas. No se dispone de un porcentaje medido ni se afirma cobertura del 100%.
+Estos resultados no representan nuevas ejecuciones durante las etapas documentales 7.2 y 7.3. `coverlet.collector` está referenciado, pero no se recolectó cobertura en aquellas corridas. No se dispone de un porcentaje medido ni se afirma cobertura del 100%.
 
 ## Decisiones técnicas
 
